@@ -1,5 +1,5 @@
 	.data
-fname:	.asciz	"img-med-c.bmp"
+fname:	.asciz	"my-cat.bmp"
 	.align	2
 fileDt:	.space	80
 
@@ -52,12 +52,16 @@ pixelsLoop:
 	
 	mv	a0, s10
 	mv	a1, s11
+	li	a2, 64
+	li	a3, 64
 	jal	calcPixelRotate
 	
 	bltz	a0, skip
 	bltz	a1, skip
 	addi	t0, s6, -1
+	addi	t1, s5, -1
 	bgt	a1, t0, skip
+	bgt	a0, t1, skip
 	
 	mv	a2, a0
 	mv	a3, a1
@@ -70,26 +74,29 @@ skip:
 	
 	b	exit
 
-setPixelVal:
-	# needs   <- pixel offset in a0, newValue (new pixel index) in a1, pixel X in a2, pixel Y in a3
+setPixelVal:	# cos tu rozjebane jest (nie dzia³a³o dla 8bitowych kolorow). Calculate pixel xy dziala natomiast dobrze
+	# needs   <- newValue (new pixel index) in a1, pixel X in a2, pixel Y in a3
 	# returns -> nothing
-	mul	a0, a3, s5
-	add	a0, a0, a2
+	mul	a0, a3, s5	# calculate pixel offset based on height and width
+	add	a0, a0, a2	# --||--
 	mul	t0, a0, s4	# save pixelOffset * bitsPerPixel to t0
 	srli	t1, t0, 3	# save starting color byte offset to t1 (bitsOffset / 8)
 	andi	t2, t0, 7	# save remainder from dividing bits offset by 8 to t2 (to find starting bit in monochrome palette)
-	mv	t4, s4
+	mv	t4, s4		# copy bits per pixel to s4
 	li	t5, 8
 	li	t6, 0
-	add	t1, t1, s3
+	add	t1, t1, s3	# store address to store pixel in t1 (start address of pixels copy + offset of first byte)
 	
 	li	t0, 1
-	ble	s4, t0, saveBit
+	beq	s4, t0, saveBit
 	li	t0, 4
-	ble	s4, t0, save4Bits
+	beq	s4, t0, save4Bits
 saveByte:
-	sb	a2, (t1)
-	ret
+	sb	a1, (t1)
+	addi	t4, t4, -8
+	blez	t4, retPx
+	srli	a1, a1, 8
+	b	saveByte
 save4Bits:
 	lb	t4, (t1)
 	li	t0, 4
@@ -104,29 +111,39 @@ save4Bits:
 	ret
 saveBit:
 	ret
+retPx:
+	ret
 	
 
 calcPixelRotate:
-	# needs   <- pixel X in a0, pixel Y in a1
+	# needs   <- pixel X in a0, pixel Y in a1, X origin in a2, Y origin in a3
 	# returns -> new pixel X in a0, new pixel Y in a1
 	# 0.11001001000011110101 - pi/4 (0.78539...)
 	# 0.10110101000001001111 - sqrt(2)/2 (0.7071067...)
-	li	t0, 741455	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
-	li	t5, -741455	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
+	sub	a0, a0, a2
+	sub	a1, a1, a3
+	
+	li	t0, 11	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
+	li	t5, -11	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
 	mul	t1, a0, t0
+	srai	t1, t1, 4
 	mul	t2, a1, t5	# t5/t0
+	srai	t2, t2, 4
 	add	t3, t1, t2
-	srai	t3, t3, 20	# newX in t3
+	add	t3, t3, a2	# newX in t3
+	#srai	t3, t3, 4	# newX in t3
 	
 	mul	t1, a0, t0	#t0/t5
+	srai	t1, t1, 4
 	mul	t2, a1, t0
+	srai	t2, t2, 4
 	add	t4, t1, t2
-	srai	t4, t4, 20	# newY in t4
+	add	t4, t4, a3	# newY in t4
+	#srai	t4, t4, 4	# newY in t4
 	
 	mv	a0, t3
 	mv	a1, t4
 	ret
-	
 	
 
 getValAtPixel:

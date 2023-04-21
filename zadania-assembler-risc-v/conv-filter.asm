@@ -3,14 +3,12 @@
 #	3. Wczytanie pixel mapy do heap
 #	4. zarezerwowanie miejsca w heap memory na pixel mape gdzie s¹ 24 bitowe kolory (width*height*3)
 #	5. Wczytanie do filtDt aktualnego filtra konwulucyjnego
-#
 
 				
 	.data
-fname:	.asciz	"img-big.bmp"
+fname:	.asciz	"img-32.bmp"
 	.align	2
 fileDt:	.space	80
-#filtDt:	.space	100	# 25*32/8 (25 pól, ka¿de po 32 bity - 4 bajty)
 filtDt: .byte	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 	.align	2
 cSave:	.space	64
@@ -21,12 +19,10 @@ editedImgData:		# each 4 bytes, in order: colors count;
 	.text
 	.globl	main
 main:
-	li	a7, 1024	# opens file
 	la	a0, fname
-	li	a1, 0
-	ecall
+	jal	openFile
+	mv	s0, a0		# save file descriptor to s0
 
-	mv	s0, a0		# save file decriptor in s0
 	la	a3, fileDt
 	jal	readHeader
 	
@@ -73,39 +69,7 @@ pixelsLoop:
 	addi	s7, s7, 1
 	b	pixelsLoop
 
-	#mv	a0, s7
-	#jal	getPixelXY
-	#mv	s10, a0
-	#mv	s11, a1
-	
-	#mv	a2, s7
-	#jal	getValAtPixel
-	#mv	a7, a0		# save color index to a7
-	
-	#mv	a0, s10
-	#mv	a1, s11
-	#li	a2, 64
-	#li	a3, 64
-	#jal	calcPixelRotate
-	
-	#bltz	a0, skip
-	#bltz	a1, skip
-	#addi	t0, s6, -1
-	#addi	t1, s5, -1
-	#bgt	a1, t0, skip
-	#bgt	a0, t1, skip
-	
-	#mv	a2, a0
-	#mv	a3, a1
-	#mv	a0, s7
-	#mv	a1, a7
-	#jal	setPixelVal
-#skip:
-	#addi	s7, s7, 1
-	#b	pixelsLoop
-	
-	#b	exit
-
+# --------------------------------------------------------------------------
 savePixelColor:
 	# needs   <- pixel offset in a0, color RGB value in a1
 	# returns -> nothing
@@ -133,7 +97,7 @@ saveNewColor:
 	sw	t3, editedImgData, t4
 	
 	b	savePixelsColorIndex
-
+# --------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------
 getColorIndex:
@@ -148,7 +112,7 @@ colorsLoop:
 	beq	t0, a1, colorFound
 	
 	srli	t1, t0, 24
-	li	t2, 0xff		# 11111111
+	li	t2, 0xff	# 11111111
 	bne	t1, t2, newColor
 	
 	addi	t3, t3, 4
@@ -161,7 +125,7 @@ newColor:
 colorFound:
 	mv	a2, t4
 	ret
-
+# --------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------
 convPixel:	# solution only for 8bit colors
@@ -280,78 +244,47 @@ skipPixel:
 	
 
 # --------------------------------------------------------------------------
-setPixelVal:	# cos tu rozjebane jest (nie dzia³a³o dla 8bitowych kolorow). Calculate pixel xy dziala natomiast dobrze
-	# needs   <- newValue (new pixel index) in a1, pixel X in a2, pixel Y in a3
-	# returns -> nothing
-	mul	a0, a3, s5	# calculate pixel offset based on height and width
-	add	a0, a0, a2	# --||--
-	mul	t0, a0, s4	# save pixelOffset * bitsPerPixel to t0
-	srli	t1, t0, 3	# save starting color byte offset to t1 (bitsOffset / 8)
-	andi	t2, t0, 7	# save remainder from dividing bits offset by 8 to t2 (to find starting bit in monochrome palette)
-	mv	t4, s4		# copy bits per pixel to s4
-	li	t5, 8
-	li	t6, 0
-	add	t1, t1, s3	# store address to store pixel in t1 (start address of pixels copy + offset of first byte)
+#setPixelVal:	# cos tu rozjebane jest (nie dzia³a³o dla 8bitowych kolorow). Calculate pixel xy dziala natomiast dobrze
+#	# needs   <- newValue (new pixel index) in a1, pixel X in a2, pixel Y in a3
+#	# returns -> nothing
+#	mul	a0, a3, s5	# calculate pixel offset based on height and width
+#	add	a0, a0, a2	# --||--
+#	mul	t0, a0, s4	# save pixelOffset * bitsPerPixel to t0
+#	srli	t1, t0, 3	# save starting color byte offset to t1 (bitsOffset / 8)
+#	andi	t2, t0, 7	# save remainder from dividing bits offset by 8 to t2 (to find starting bit in monochrome palette)
+#	mv	t4, s4		# copy bits per pixel to s4
+#	li	t5, 8
+#	li	t6, 0
+#	add	t1, t1, s3	# store address to store pixel in t1 (start address of pixels copy + offset of first byte)
+#	
+#	li	t0, 1
+#	beq	s4, t0, saveBit
+#	li	t0, 4
+#	beq	s4, t0, save4Bits
+#saveByte:
+#	sb	a1, (t1)
+#	addi	t4, t4, -8
+#	blez	t4, retPx
+#	srli	a1, a1, 8
+#	b	saveByte
+#save4Bits:
+#	lb	t4, (t1)
+#	li	t0, 4
+#	sub	t0, t0, t2
+#	li	a0, 240
+#	srl	a0, a0, t2
+#	and	t6, a0, t4
+#	
+#	sll	a1, a1, t2
+#	add	t4, t6, a1
+#	sb	t4, (t1)
+#	ret
+#saveBit:
+#	ret
+#retPx:
+#	ret
 	
-	li	t0, 1
-	beq	s4, t0, saveBit
-	li	t0, 4
-	beq	s4, t0, save4Bits
-saveByte:
-	sb	a1, (t1)
-	addi	t4, t4, -8
-	blez	t4, retPx
-	srli	a1, a1, 8
-	b	saveByte
-save4Bits:
-	lb	t4, (t1)
-	li	t0, 4
-	sub	t0, t0, t2
-	li	a0, 240
-	srl	a0, a0, t2
-	and	t6, a0, t4
-	
-	sll	a1, a1, t2
-	add	t4, t6, a1
-	sb	t4, (t1)
-	ret
-saveBit:
-	ret
-retPx:
-	ret
-	
-
-calcPixelRotate:
-	# needs   <- pixel X in a0, pixel Y in a1, X origin in a2, Y origin in a3
-	# returns -> new pixel X in a0, new pixel Y in a1
-	# 0.11001001000011110101 - pi/4 (0.78539...)
-	# 0.10110101000001001111 - sqrt(2)/2 (0.7071067...)
-	sub	a0, a0, a2
-	sub	a1, a1, a3
-	
-	li	t0, 11	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
-	li	t5, -11	# pierw(2)/2 in t0 (20 - biotwe, bez 0)
-	mul	t1, a0, t0
-	srai	t1, t1, 4
-	mul	t2, a1, t5	# t5/t0
-	srai	t2, t2, 4
-	add	t3, t1, t2
-	add	t3, t3, a2	# newX in t3
-	#srai	t3, t3, 4	# newX in t3
-	
-	mul	t1, a0, t0	#t0/t5
-	srai	t1, t1, 4
-	mul	t2, a1, t0
-	srai	t2, t2, 4
-	add	t4, t1, t2
-	add	t4, t4, a3	# newY in t4
-	#srai	t4, t4, 4	# newY in t4
-	
-	mv	a0, t3
-	mv	a1, t4
-	ret
-	
-
+# --------------------------------------------------
 getValAtPixel:
 	# needs   <- deprecated(pixel offset in a2) pixel X in a0, pixel Y in a1
 	# returns -> color index at pixel in a0
@@ -393,9 +326,9 @@ ret4bits:
 retVal:
 	mv	a0, t6
 	ret
-
+# --------------------------------------------------
 	
-
+# --------------------------------------------------
 getPixelXY:
 	# needs   <- offset of pixels in a0
 	# returns -> pixel X in a0, pixel Y in a1
@@ -456,7 +389,9 @@ getColors:
 	mv	a1, t3
 	mv	a2, t4
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 getPixles:
 	# needs   <- address to generic image data in a0
 	# returns -> address of pixels stored in heap memory in a0,
@@ -521,13 +456,17 @@ getPixles:
 	mv	a1, t5
 	mv	a2, t3
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 getBitsPerPixels:
 	# needs   <- address to generic image data in a0
 	# returns -> bits per pixel in a1
 	lhu	a1, 28(a0)
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 getImgWidthHeight:
 	# needs   <- address to generic image data in a0
 	# returns -> width in a0, height in a1
@@ -544,7 +483,9 @@ getImgWidthHeight:
 	mv	a0, t2
 	mv	a1, t3
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 formatStaticImgData:
 	# needs   <- nothing
 	# returns -> colorsTable size in a0, rasterData size in a1
@@ -584,7 +525,9 @@ formatStaticImgData:
 	mv	a1, s9
 
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 saveImg:
 	# needs   <- colorsTable size in a0, rasterData size in a1
 	# returns -> NOTHING
@@ -621,10 +564,24 @@ saveImg:
 	mv	a0, s0
 	ecall
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
+openFile:
+	# needs   <- filneName in a0
+	# returns -> fileDescriptor in a0
+	li	a7, 1024	# opens file
+	la	a0, fname
+	li	a1, 0
+	ecall
+	ret
+# --------------------------------------------------
+
+# --------------------------------------------------
 exit:
 	jal	formatStaticImgData
 	jal	saveImg
 
 	li	a7, 10
 	ecall
+# --------------------------------------------------

@@ -6,7 +6,7 @@
 
 				
 	.data
-fname:	.asciz	"img-32.bmp"
+fname:	.asciz	"cat-32.bmp"
 	.align	2
 fileDt:	.space	80
 filtDt: .byte	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
@@ -217,9 +217,24 @@ convFiltLoop:
 	
 	b	convFiltLoop
 convFinish:
-	div	t0, t0, t3
+	div	t0, t0, t3	# divide by accounted weight
 	div	t1, t1, t3
 	div	t2, t2, t3
+colorsScaling:
+	li	a0, 252		# max 7 stages in 8 bit red channel, 36 space betwwen (36 * 7 = 252). Max 6 stages in G and B (42 * 6 = 252)
+	bgt	t0, a0, limitChannelRed		# red channel max(value, 255)
+	bgt	t1, a0, limitChannelGreen	# grren channel max(value, 255)
+	bgt	t2, a0, limitChannelBlue	# blue channel max(value, 255)
+	
+	li	a1, 36
+	li	a2, 42
+	rem	a0, t0, a1	# normalizes channel to fit in 8 bit color space
+	sub	t0, t0, a0
+	rem	a0, t1, a2
+	sub	t1, t1, a0
+	rem	a0, t2, a2
+	sub	t2, t2, a0
+
 	li	a0, 0
 	addi	a0, a0, 255	# add 0b0...11111111 (FF)
 	slli	a0, a0, 8
@@ -235,7 +250,30 @@ newRow:
 	li	a4, 2
 	bgt	t5, a4, convFinish
 	b	convFiltLoop
+limitChannelRed:
+	li	t0, 252
+	b	colorsScaling
+limitChannelGreen:
+	li	t1, 252
+	b	colorsScaling
+limitChannelBlue:
+	li	t2, 252
+	b	colorsScaling	
 skipPixel:
+#	# Load filter weight of current pixel
+#	li	a0, 2
+#	li	a1, 2
+#	add	a0, a0, t4	# X offset of filter weight
+#	add	a1, a1, t5	# Y offset of filter weight
+#	li	a4, 5
+#	mul	a1, a1, a4
+#	add	a1, a1, a0	# final offset of filter weight in a1
+#	
+#	la	a0, filtDt
+#	add	a0, a0, a1
+#	lb	a4, (a0)	# current pixel filter weight in a4
+#	# ===================================
+
 	addi	t3, t3, -1
 	addi	t4, t4, 1
 	li	a4, 2

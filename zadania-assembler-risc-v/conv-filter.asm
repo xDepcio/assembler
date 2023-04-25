@@ -64,39 +64,60 @@ pixelsLoop:
 	
 	mv	a1, a0
 	mv	a0, s7
-	jal	savePixelColor
+	jal	savePixelColor24bit
 	
 	addi	s7, s7, 1
 	b	pixelsLoop
 
+
 # --------------------------------------------------------------------------
-savePixelColor:
+savePixelColor24bit:
 	# needs   <- pixel offset in a0, color RGB value in a1
 	# returns -> nothing
-	mv	a7, ra
-	jal	getColorIndex
-	mv	ra, a7
-	mv	t0, a2		# color index offset in a2
-	mv	t1, a3		# whether colors exists in a3 (0 if exists, -1 otherwise)
+	slli	t0, a0, 1
+	add	t0, t0, a0	# bytes offset in t0 (each pixel takes 3 bytes in 24 bit space)
+	add	t0, s3, t0	# memory address of start of pixel in t0
 	
-	bnez	t1, saveNewColor
-savePixelsColorIndex:
-	srli	t0, t0, 2	# index in t0 - index is offset / 4 (each colors takes 4 bytes of space)
+	sb	a1, (t0)	# store Blue channel
+	srli	a1, a1, 8
+	addi	t0, t0, 1
+	sb	a1, (t0)	# store Green channel
+	srli	a1, a1, 8
+	addi	t0, t0, 1
+	sb	a1, (t0)	# store Red channel
 	
-	mv	t2, s3
-	add	t2, t2, a0
-	sb	t0, (t2)
 	ret
-saveNewColor:
-	mv	t2, s8
-	add	t2, t2, t0
-	sw	a1, (t2)
-	
-	lw	t3, editedImgData	# this part updates colors count
-	addi	t3, t3, 1
-	sw	t3, editedImgData, t4
-	
-	b	savePixelsColorIndex
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+#savePixelColor:
+#	# needs   <- pixel offset in a0, color RGB value in a1
+#	# returns -> nothing
+#	mv	a7, ra
+#	jal	getColorIndex
+#	mv	ra, a7
+#	mv	t0, a2		# color index offset in a2
+#	mv	t1, a3		# whether colors exists in a3 (0 if exists, -1 otherwise)
+#	
+#	bnez	t1, saveNewColor
+#savePixelsColorIndex:
+#	srli	t0, t0, 2	# index in t0 - index is offset / 4 (each colors takes 4 bytes of space)
+#	
+#	mv	t2, s3
+#	slli	a0, a0, 1	# mul offset x 2 beacuse of 16bit colors (2 bytes)
+#	add	t2, t2, a0
+#	sh	t0, (t2)
+#	ret
+#saveNewColor:
+#	mv	t2, s8
+#	add	t2, t2, t0
+#	sw	a1, (t2)
+#	
+#	lw	t3, editedImgData	# this part updates colors count
+#	addi	t3, t3, 1
+#	sw	t3, editedImgData, t4
+#	
+#	b	savePixelsColorIndex
 # --------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------
@@ -221,19 +242,25 @@ convFinish:
 	div	t1, t1, t3
 	div	t2, t2, t3
 colorsScaling:
-	li	a0, 252		# max 7 stages in 8 bit red channel, 36 space betwwen (36 * 7 = 252). Max 6 stages in G and B (42 * 6 = 252)
+	li	a0, 255		# max 40 stages in 16 bit red channel, 6 space betwwen (36 * 7 = 252). Max 6 stages in G and B (42 * 6 = 252)
 	bgt	t0, a0, limitChannelRed		# red channel max(value, 255)
 	bgt	t1, a0, limitChannelGreen	# grren channel max(value, 255)
 	bgt	t2, a0, limitChannelBlue	# blue channel max(value, 255)
-	
-	li	a1, 36
-	li	a2, 42
-	rem	a0, t0, a1	# normalizes channel to fit in 8 bit color space
-	sub	t0, t0, a0
-	rem	a0, t1, a2
-	sub	t1, t1, a0
-	rem	a0, t2, a2
-	sub	t2, t2, a0
+
+#	scaling not needed in 24bit color space	
+#	li	a1, 421302	# 6.4 with 16bits for whole and 16bits after comma
+#	slli	t0, t0, 16
+#	slli	t1, t1, 16	
+#	slli	t2, t2, 16
+#	rem	a0, t0, a1	# normalizes channel to fit in 8 bit color space
+#	sub	t0, t0, a0
+#	srli	t0, t0, 16
+#	rem	a0, t1, a2
+#	sub	t1, t1, a0
+#	srli	t1, t1, 16
+#	rem	a0, t2, a2
+#	sub	t2, t2, a0
+#	srli	t2, t2, 16
 
 	li	a0, 0
 	addi	a0, a0, 255	# add 0b0...11111111 (FF)
@@ -251,13 +278,13 @@ newRow:
 	bgt	t5, a4, convFinish
 	b	convFiltLoop
 limitChannelRed:
-	li	t0, 252
+	li	t0, 255
 	b	colorsScaling
 limitChannelGreen:
-	li	t1, 252
+	li	t1, 255
 	b	colorsScaling
 limitChannelBlue:
-	li	t2, 252
+	li	t2, 255
 	b	colorsScaling	
 skipPixel:
 #	# Load filter weight of current pixel
@@ -376,7 +403,9 @@ getPixelXY:
 	mv	a0, t1
 	mv	a1, t0
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 readHeader:
 	# buf to save to in a3
 	li	a7, 63
@@ -385,7 +414,9 @@ readHeader:
 	li	a2, 54
 	ecall
 	ret
+# --------------------------------------------------
 
+# --------------------------------------------------
 getColors:
 	# needs   <- address of imageData buffer in a0
 	# returns -> address of used colors list stored in heap memory in a1
@@ -402,9 +433,9 @@ getColors:
 	
 	li	a7, 9
 	#li	a0, 16777216	# reserve space for 24bit colors space
-	li	a0, 256	# reserve space for 8bit colors space
+	li	a0, 262144	# reserve space for 16bit colors space (2^16 * 4 = 262144)
 	ecall
-	mv	t4, a0		# save address of empy colors start address in t4
+	mv	t4, a0		# save address of emtpy colors start address in t4
 	
 	li	a7, 62		# This part seeks to the start of colors in BMP file
 	mv	a0, s0
@@ -455,7 +486,7 @@ getPixles:
 	
 	li	a7, 9		# this part allocates heap memory for copy of pixels for 24bit colors (this one will be rewritten and is gargabe at start)
 	srli	t1, s9, 1
-	add	t1, t1, s9
+	add	t1, t1, s9	# in t1 space in bytes for 24bit colors
 	mv	a0, t1
 	ecall
 	mv	t5, a0		# save addres of copy of pixels to t5
@@ -529,9 +560,9 @@ formatStaticImgData:
 	# returns -> colorsTable size in a0, rasterData size in a1
 	# ----------------------- this part sets correct offset to raster data
 	li	t0, 54		# offset to raster data (initialy 54 which is constant size of Header+InfoHeader)
-	lw	t1, editedImgData	# load colors count to t1
-	slli	t2, t1, 2	# each color takes 4 bytes so mul by 4, final colors space taken in t2
-	add	t0, t0, t2	# final offset to raster data in t0
+#	lw	t1, editedImgData	# load colors count to t1
+#	slli	t2, t1, 2	# each color takes 4 bytes so mul by 4, final colors space taken in t2
+#	add	t0, t0, t2	# final offset to raster data in t0
 	
 	la	t3, fileDt	# this part updates offset to raster data after convolution
 	sh	t0, 10(t3)
@@ -540,17 +571,19 @@ formatStaticImgData:
 	
 	# ----------------------- this part sets correct file size
 	li	t0, 54		# constant size of Header+HeaderInfo is 54, store size in t0
-	add	t0, t0, t2	# header + colors
-	add	t0, t0, s9	# header + colors + pixels(8bit colors), final file size in t0
+#	add	t0, t0, t2	# header + colors
+	slli	a0, s9, 1
+	add	a0, a0, s9
+	add	t0, t0, a0	# header + colors + pixels(24bit colors), final file size in t0
 	
 	la	t3, fileDt	# this part updates file size after convolution
 	sh	t0, 2(t3)
 	srli	t0, t0, 16
 	sh	t0, 4(t3)
 	
-	# ----------------------- this part sets bits per pixel (8bits)
+	# ----------------------- this part sets bits per pixel (24bits)
 	la	t3, fileDt
-	li	a0, 8
+	li	a0, 24
 	sh	a0, 28(t3)
 	
 	# ----------------------- this part sets used colors count
@@ -560,7 +593,10 @@ formatStaticImgData:
 	sh	t1, 48(t3)
 	
 	mv	a0, t2
-	mv	a1, s9
+	mv	a1, s9	
+	slli	a1, a1, 1	# mul pixel by 3 (each pixel takes 3 bytes in 24bit color space)
+	add	a1, a1, s9	# --||--
+	li	a0, 0
 
 	ret
 # --------------------------------------------------
@@ -587,11 +623,11 @@ saveImg:
 	la	a1, fileDt
 	li	a2, 54
 	ecall
-	li	a7, 64		# this part writes colors
-	mv	a0, s0
-	mv	a1, s8
-	mv	a2, t0
-	ecall
+#	li	a7, 64		# this part writes colors
+#	mv	a0, s0
+#	mv	a1, s8
+#	mv	a2, t0
+#	ecall
 	li	a7, 64		# this part writes rasterData
 	mv	a0, s0
 	mv	a1, s3

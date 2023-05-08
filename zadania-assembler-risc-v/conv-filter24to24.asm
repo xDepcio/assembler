@@ -1,11 +1,15 @@
 #	(0, 0) of image is in its bottom left
 #	filter traverses the image from left to right and bottom to top
 #	filter values are written from left to right and from bottom to top. Tm. (0, 0) of filter is its bottom left
+#	filter accepts .bmp with 24bit colors and produces .bmp image with 24bit colors
+#	filter values are 16bit U2 numbers with 1st byte for whole part and 2nd byte for fraction
+#	when filter values add up to 25.0 (filter area), pixel brightness is preserved. This allows for easy brightness changes.
 
 	.data
-fname:	.asciz	"ein24.bmp"
+fname:	.asciz	"63x64ein.bmp"
 	.align	2
 fileDt:	.space	54
+
 #filtDt:	.half	0, 0, 0xff00, 0, 0, 0, 0xff00, 0xfd80, 0xff00, 0, 0xff00, 0xfd80, 0x2b00, 0xfd80, 0xff00, 0, 0xff00, 0xfd80, 0xff00, 0, 0, 0, 0xff00, 0, 0
 # ^	| 0.0  0.0  -1.0  0.0  0.0 |
 # |	| 0.0 -1.0  -2.5 -1.0  0.0 |
@@ -13,15 +17,33 @@ fileDt:	.space	54
 # |	| 0.0 -1.0  -2.5 -1.0  0.0 |
 # |	| 0.0  0.0  -1.0  0.0  0.0 |
 
-#filtDt:	.half	0, 0, 0, 0, 0, 0, 0xff00, 0xfffe, 0xff00, 0, 0, 0, 0, 0, 0, 0, 0x0100, 0x0200, 0x0100, 0, 0, 0, 0, 0, 0
-#filtDt:	.half	0, 0, 0, 0, 0, 0, 0x0100, 0x0100, 0x0100, 0, 0, 0, 0, 0, 0, 0, 0xff00, 0xff00, 0xff00, 0, 0, 0, 0, 0, 0
-#filtDt:	.half	0, 0, 0, 0, 0, 0, 0xff00, 0, 0x0100, 0, 0, 0xfe00, 0, 0x0200, 0, 0, 0xff00, 0, 0x0100, 0, 0, 0, 0, 0, 0
+#filtDt:	.half	0, 0, 0, 0, 0, 0, 0x0c00, 0x0c00, 0x0c00, 0, 0, 0, 0, 0, 0, 0, 0xf400, 0xf400, 0xf400, 0, 0, 0, 0, 0, 0
+# ^	| 0.0   0.0   0.0   0.0  0.0 |
+# |	| 0.0 -12.0 -12.0 -12.0  0.0 |
+# |	| 0.0   0.0   0.0   0.0  0.0 |  Horizontal edge detection
+# |	| 0.0  12.0  12.0  12.0  0.0 |
+# |	| 0.0   0.0   0.0   0.0  0.0 |
+
+#filtDt:	.half	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x3200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+# ^	| 0.0  0.0  0.0  0.0  0.0 |
+# |	| 0.0  0.0  0.0  0.0  0.0 |
+# |	| 0.0  0.0 50.0  0.0  0.0 |  Image brightener
+# |	| 0.0  0.0  0.0  0.0  0.0 |
+# |	| 0.0  0.0  0.0  0.0  0.0 |
+
 filtDt:	.half	0, 0, 0, 0, 0, 0, 0xf700, 0, 0x0900, 0, 0, 0xee00, 0, 0x1200, 0, 0, 0xf700, 0, 0x0900, 0, 0, 0, 0, 0, 0  
+# ^	| 0.0   0.0  0.0  0.0  0.0 |
+# |	| 0.0  -9.0  0.0  9.0  0.0 |
+# |	| 0.0 -18.0  0.0 18.0  0.0 |  Sobel filter. X - direction
+# |	| 0.0  -9.0  0.0  9.0  0.0 |
+# |	| 0.0   0.0  0.0  0.0  0.0 |
 
-#filtDt: .half	0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100 # each filter value is 2 bytes U2 number with first byte for whole part and 2nd byte for fractions
-
-		.align	2
-cSave:	.space	64
+#filtDt:	.half	0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100, 0x0100
+# ^	| 1.0  1.0  1.0  1.0  1.0 |
+# |	| 1.0  1.0  1.0  1.0  1.0 |
+# |	| 1.0  1.0  1.0  1.0  1.0 |  Basic image blurr example
+# |	| 1.0  1.0  1.0  1.0  1.0 |
+# |	| 1.0  1.0  1.0  1.0  1.0 |
 
 	.text
 	.globl	main
@@ -39,7 +61,6 @@ main:
 	mv	s2, a1		# save img height in s2
 	mul	s3, s1, s2	# save total pixels count to s3
 	
-	la	a0, fileDt
 	jal	getPixles
 	mv	s4, a0		# save address of original pixels in s4
 	mv	s5, a1		# save address of pixels copy in s5
@@ -59,8 +80,9 @@ pixelsLoop:
 	mv	a1, s8
 	jal	convPixel
 	
-	mv	a1, a0
-	mv	a0, s6
+	mv	a2, a0
+	mv	a0, s7
+	mv	a1, s8
 	jal	savePixelColor24bit
 	
 	addi	s6, s6, 1
@@ -69,51 +91,31 @@ pixelsLoop:
 
 # --------------------------------------------------------------------------
 savePixelColor24bit:
-	# needs   <- pixel offset in a0, color RGB value in a1
+	# needs   <- pixel X in a0, pixel Y in a1, color RGB value in a2
 	# returns -> nothing
-	slli	t0, a0, 1
-	add	t0, t0, a0	# bytes offset in t0 (each pixel takes 3 bytes in 24 bit space)
-	add	t0, s5, t0	# memory address of start of pixel in t0
 	
-	sb	a1, (t0)	# store Blue channel
-	srli	a1, a1, 8
+	mul	t0, a1, s1
+	add	t0, t0, a0	# pixel offset in t0
+	
+	li	a0, 3		# mask to get modulo 4 (0b011)
+	and	a0, a0, s1	# (width % 4) in a0
+	mul	a0, a0, a1	# padding up to current pixel in a0
+	
+	slli	a1, t0, 1	# mul offset by 3 (each pixel is 3 bytes)
+	add	a1, a1, t0	# --||--
+	add	a1, a1, a0	# add padding to bytes offset
+	add	t0, a1, s5	# final address of pixel in t0
+	
+	sb	a2, (t0)	# store Blue channel
+	srli	a2, a2, 8
 	addi	t0, t0, 1
-	sb	a1, (t0)	# store Green channel
-	srli	a1, a1, 8
+	sb	a2, (t0)	# store Green channel
+	srli	a2, a2, 8
 	addi	t0, t0, 1
-	sb	a1, (t0)	# store Red channel
+	sb	a2, (t0)	# store Red channel
 	
 	ret
 # --------------------------------------------------------------------------
-
-# --------------------------------------------------------------------------
-getColorIndex:
-	# needs   <- color RGB value in a1
-	# returns -> color index offset in a2 (or index offset of where to write new color when a3 is set to -1, normaly it is 0)
-	li	a3, 0
-	mv	t3, s8
-	li	t4, 0		# offset in t4
-colorsLoop:
-	lw	t0, (t3)
-	
-	beq	t0, a1, colorFound
-	
-	srli	t1, t0, 24
-	li	t2, 0xff	# 11111111
-	bne	t1, t2, newColor
-	
-	addi	t3, t3, 4
-	addi	t4, t4, 4
-	b	colorsLoop
-newColor:
-	li	a3, -1
-	mv	a2, t4
-	ret
-colorFound:
-	mv	a2, t4
-	ret
-# --------------------------------------------------------------------------
-
 # --------------------------------------------------------------------------
 convPixel:
 	# needs   <- pixel X in a0, pixel Y in a1
@@ -123,11 +125,7 @@ convPixel:
 	li	t0, 0		# R channel total value
 	li	t1, 0		# G channel total value
 	li	t2, 0		# B channel total value
-	#
-	#li	t3, 256
-	li	t3, 2304
-	#li	t3, 6400	# default divisor is equal to number of filter cells (5x5=25) shifted left by 8 bits (1 byte for whole, 1 byte for fractions)
-	#
+	li	t3, 6400	# default divisor is equal to number of filter cells (5x5=25) shifted left by 8 bits (1 byte for whole, 1 byte for fractions)
 	li	t4, -2		# starting x offset of filter
 	li	t5, -2		# starting y offset of filter
 convFiltLoop:
@@ -147,24 +145,11 @@ convFiltLoop:
 	la	a0, filtDt
 	add	a0, a0, a1
 	lh	a4, (a0)	# current pixel filter weight in a4
-	# ===================================
 	
 	bltz	a2, skipPixel
 	bltz	a3, skipPixel
 	bge	a2, s1, skipPixel
 	bge	a3, s2, skipPixel
-	
-#	la	a0, cSave	# save registers
-#	sw	a2, (a0)
-#	sw	a3, 4(a0)
-#	sw	a6, 8(a0)
-#	sw	a7, 12(a0)
-#	sw	t0, 16(a0)
-#	sw	t1, 20(a0)
-#	sw	t2, 24(a0)
-#	sw	t3, 28(a0)
-#	sw	t4, 32(a0)
-#	sw	t5, 36(a0)
 	
 	mv	a5, ra
 	mv	s9, a2
@@ -172,33 +157,6 @@ convFiltLoop:
 	jal	getValAtPixel
 	mv	ra, a5
 	mv	t6, s9		# load pixel RGB value to t6
-	
-#	la	a0, cSave	# retrieve registers
-#	lw	a2, (a0)
-#	lw	a3, 4(a0)
-#	lw	a6, 8(a0)
-#	lw	a7, 12(a0)
-#	lw	t0, 16(a0)
-#	lw	t1, 20(a0)
-#	lw	t2, 24(a0)
-#	lw	t3, 28(a0)
-#	lw	t4, 32(a0)
-#	lw	t5, 36(a0)
-	
-#	# Load filter weight of current pixel
-#	li	a0, 2
-#	li	a1, 2
-#	add	a0, a0, t4	# X offset of filter weight
-#	add	a1, a1, t5	# Y offset of filter weight
-#	li	a4, 5
-#	mul	a1, a1, a4
-#	add	a1, a1, a0
-#	slli	a1, a1, 1	# each filter value takes 2 bytes so mul by 2. final offset of filter weight in a1	
-#	
-#	la	a0, filtDt
-#	add	a0, a0, a1
-#	lh	a4, (a0)	# current pixel filter weight in a4
-#	# ===================================
 	
 	li	a1, 16711680	# 0b00000000111111110000000000000000 - mask to only get red value
 	and	a0, t6, a1
@@ -273,23 +231,26 @@ zeroChannelBlue:
 	b	colorsScaling
 skipPixel:
 	sub	t3, t3, a4
-#	addi	t3, t3, -1
 	addi	t4, t4, 1
 	li	a4, 2
 	bgt	t4, a4, newRow
 	b	convFiltLoop
 # --------------------------------------------------------------------------
-
 # --------------------------------------------------
 getValAtPixel:		# only modifies (s9-s11) registers
 	# needs   <- pixel X in s9, pixel Y in s10
 	# returns -> color RGB value in s9
-	mul	s10, s10, s1
-	add	s10, s10, s9	# pixel offset in s10
+	mul	s11, s10, s1
+	add	s11, s11, s9	# pixel offset in s11
 	
-	slli	s11, s10, 1	# mul by 3 (each pixel is 3 bytes)
-	add	s11, s11, s10	# cd...
-	add	s10, s11, s4	# final address of pixel in s10
+	li	s9, 3		# mask to get modulo 4 (0b011)
+	and	s9, s9, s1	# (width % 4) in s11
+	mul	s9, s9, s10	# padding up to current pixel in s9
+	
+	slli	s10, s11, 1	# mul offset by 3 (each pixel is 3 bytes)
+	add	s10, s10, s11	# --||--
+	add	s10, s10, s9	# add padding to bytes offset
+	add	s10, s10, s4	# final address of pixel in s10
 
 	lbu	s9, 2(s10)	# load R
 	slli	s9, s9, 8
@@ -301,7 +262,6 @@ getValAtPixel:		# only modifies (s9-s11) registers
 	
 	ret
 # --------------------------------------------------
-	
 # --------------------------------------------------
 getPixelXY:
 	# needs   <- offset of pixels in a0
@@ -325,19 +285,23 @@ readHeader:
 # --------------------------------------------------
 # --------------------------------------------------
 getPixles:
-	# needs   <- address to generic image data in a0
-	# returns -> address of pixels stored in heap memory in a0,
-	li	a7, 9		# this part allocates heap memory for pixels
-	slli	t3, s3, 1	# mul by 3 (each pixel takes 3 bytes)
-	add	t3, t3, s3	# cd...
-	mv	a0, t3
+	# needs   <- nothing
+	# returns -> address of pixels stored in heap memory in a0, address of space reserved for new pixels in a1
+	la	a0, fileDt
+	
+	lhu	t0, 2(a0)
+	lhu	t1, 4(a0)
+	slli	t1, t1, 16
+	add	t0, t0, t1	# file size in t0
+	addi	t0, t0, -54	# pixels size in bytes in t0
+	
+	li	a7, 9
+	mv	a0, t0
 	ecall
 	mv	t4, a0		# save addres of pixels to t4
 	
-	li	a7, 9		# this part allocates heap memory for copy of pixels for 24bit colors (this one will be rewritten and is gargabe at start)
-	slli	t1, s3, 1
-	add	t1, t1, s3	# in t1 space in bytes for 24bit colors
-	mv	a0, t1
+	li	a7, 9
+	mv	a0, t0
 	ecall
 	mv	t5, a0		# save addres of copy of pixels to t5
 	
@@ -350,12 +314,23 @@ getPixles:
 	li	a7, 63		# read pixels to heap memory pointed by t4
 	mv	a0, s0
 	mv	a1, t4
-	mv	a2, t3
+	mv	a2, t0
+	ecall
+	
+	li	a7, 62		# this part seeks to start of raster data
+	mv	a0, s0
+	li	a1, 54
+	li	a2, 0
+	ecall
+	
+	li	a7, 63		# read pixels to heap memory pointed by t4
+	mv	a0, s0
+	mv	a1, t5
+	mv	a2, t0
 	ecall
 	
 	mv	a0, t4
 	mv	a1, t5
-	mv	a2, t3
 	ret
 # --------------------------------------------------
 # --------------------------------------------------
@@ -377,43 +352,16 @@ getImgWidthHeight:
 	ret
 # --------------------------------------------------
 # --------------------------------------------------
-formatStaticImgData:
-	# needs   <- nothing
-	# returns -> colorsTable size in a0, rasterData size in a1
-	li	t0, 54		# offset to raster data (initialy 54 which is constant size of Header+InfoHeader)
-	
-	la	t3, fileDt	# this part updates offset to raster data after convolution
-	sh	t0, 10(t3)
-	srli	t0, t0, 16
-	sh	t0, 12(t3)
-	
-	# ----------------------- this part sets correct file size
-	li	t0, 54		# constant size of Header+HeaderInfo is 54, store size in t0
-	slli	a0, s3, 1
-	add	a0, a0, s3
-	add	t0, t0, a0	# header + colors + pixels(24bit colors), final file size in t0
-	
-	la	t3, fileDt	# this part updates file size after convolution
-	sh	t0, 2(t3)
-	srli	t0, t0, 16
-	sh	t0, 4(t3)
-	
-	# ----------------------- this part sets bits per pixel (24bits)
-	la	t3, fileDt
-	li	a0, 24
-	sh	a0, 28(t3)
-	
-	mv	a1, s3	
-	slli	a1, a1, 1	# mul pixel by 3 (each pixel takes 3 bytes in 24bit color space)
-	add	a1, a1, s3	# --||--
-
-	ret
-# --------------------------------------------------
-# --------------------------------------------------
 saveImg:
-	# needs   <- rasterData size in a1
-	# returns -> NOTHING
-	mv	t1, a1
+	# needs   <- nothing
+	# returns -> nothing
+	la	a0, fileDt
+	
+	lhu	t0, 2(a0)
+	lhu	t1, 4(a0)
+	slli	t1, t1, 16
+	add	t0, t0, t1	# file size in t0
+	addi	t1, t0, -54	# pixels map size in bytes in t1
 
 	li	a7, 57		# this part closes read-only file
 	mv	a0, s0
@@ -454,7 +402,6 @@ openFile:
 # --------------------------------------------------
 # --------------------------------------------------
 exit:
-	jal	formatStaticImgData
 	jal	saveImg
 
 	li	a7, 10
